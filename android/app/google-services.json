@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "315341492006",
+    "project_id": "tender-finder-160d0",
+    "storage_bucket": "tender-finder-160d0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:315341492006:android:da64250ed0b0d909807be7",
+        "android_client_info": {
+          "package_name": "com.example.tenderfinder"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSrqMifVcNTngQcB4AdGHaaCiFHZYdjOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

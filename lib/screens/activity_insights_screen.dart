@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
 class ActivityInsightsScreen extends StatelessWidget {
-  final String userName;
-  final String userEmail;
-  const ActivityInsightsScreen({
-    super.key,
-    required this.userName,
-    required this.userEmail,
-  });
+  final String? userName;
+  final String? userEmail;
+  const ActivityInsightsScreen({super.key, this.userName, this.userEmail});
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../shared/subscription_provider.dart';
 import 'home_screen.dart';
 
 class SignupScreen extends StatelessWidget {
@@ -10,6 +12,13 @@ class SignupScreen extends StatelessWidget {
 
   void _signup(BuildContext context) {
     if (_formKey.currentState!.validate()) {
+      // Initialize subscription provider with user ID
+      final subscriptionProvider = Provider.of<SubscriptionProvider>(
+        context,
+        listen: false,
+      );
+      subscriptionProvider.initializeSubscription(emailController.text);
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

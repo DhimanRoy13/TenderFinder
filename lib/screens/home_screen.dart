@@ -3,11 +3,14 @@
 
 import 'package:flutter/material.dart';
 import '../widgets/custom_bottom_navbar.dart';
+import '../widgets/floating_filter_button.dart';
 import '../shared/filter_utils.dart';
 import '../shared/tender_models.dart';
 import '../shared/tender_widgets.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import 'notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userEmail;
@@ -323,11 +326,36 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: const Color(0xFF1C989C),
           foregroundColor: Colors.white,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () {
-                Navigator.pushNamed(context, '/notifications');
-              },
+            Padding(
+              padding: const EdgeInsets.only(right: 16, top: 6),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.white),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => NotificationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -413,42 +441,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               // Fixed Floating Filter Button
-              Positioned(right: 16, bottom: 16, child: _buildFilterButton()),
+              FloatingFilterButton(onPressed: _openFilterModal),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterButton() {
-    return SizedBox(
-      height: 56,
-      width: 56,
-      child: FloatingActionButton(
-        onPressed: _openFilterModal,
-        shape: const CircleBorder(),
-        backgroundColor: const Color(0xFF007074),
-        foregroundColor: Colors.white,
-        splashColor: const Color(0xFF1C989C),
-        elevation: 8,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.filter_list, size: 28, color: Colors.white),
-            SizedBox(height: 1),
-            Text(
-              'Filter',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 8,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -12,6 +12,10 @@ class CustomBottomNavBar extends StatelessWidget {
 
   static const _routes = ['/home', '/tenders', '/notifications', '/profile'];
 
+  // Selected/Unselected colors
+  final Color _selectedItemColor = const Color(0xFF23BBBF);
+  final Color _unselectedItemColor = Colors.white;
+
   int _getCurrentIndex(BuildContext context) {
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
     return _routes.indexOf(currentRoute);
@@ -21,7 +25,6 @@ class CustomBottomNavBar extends StatelessWidget {
     if (onTabSelected != null) {
       onTabSelected!(index);
     }
-    // Also navigate to the correct route if not already there
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
     if (_routes[index] != currentRoute) {
       Navigator.pushNamed(context, _routes[index]);
@@ -33,7 +36,8 @@ class CustomBottomNavBar extends StatelessWidget {
     final currentIndex = _getCurrentIndex(context);
 
     return BottomAppBar(
-      shape: CircularNotchedRectangle(),
+      color: const Color(0xFF222222),
+      shape: const CircularNotchedRectangle(),
       notchMargin: 6.0,
       child: SizedBox(
         height: 54,
@@ -70,33 +74,37 @@ class CustomBottomNavBar extends StatelessWidget {
     int currentIndex,
   ) {
     bool isSelected = currentIndex == index;
+
     const EdgeInsets itemPadding = EdgeInsets.symmetric(
       horizontal: 10,
       vertical: 6,
     );
     const double navItemWidth = 90;
+
     return InkWell(
       onTap: () => _onTabTapped(context, index),
       borderRadius: BorderRadius.circular(16),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       child: SizedBox(
         width: navItemWidth,
         child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF1C989C) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: const BoxDecoration(color: Colors.transparent),
           padding: itemPadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: isSelected ? Colors.white : Colors.grey),
+              Icon(
+                icon,
+                color: isSelected ? _selectedItemColor : _unselectedItemColor,
+              ),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey,
+                  color: isSelected ? _selectedItemColor : _unselectedItemColor,
                   fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: FontWeight.normal,
                 ),
               ),
             ],

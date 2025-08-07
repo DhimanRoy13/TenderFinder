@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../shared/bookmark_provider.dart';
 import '../widgets/custom_bottom_navbar.dart';
+import '../widgets/floating_filter_button.dart';
 import '../shared/filter_utils.dart';
 import 'tender_detail_screen.dart';
 
@@ -153,42 +154,9 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                 },
               ),
               // Fixed Floating Filter Button
-              Positioned(right: 16, bottom: 16, child: _buildFilterButton()),
+              FloatingFilterButton(onPressed: () => _openFilter(context)),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterButton() {
-    return SizedBox(
-      height: 56,
-      width: 56,
-      child: FloatingActionButton(
-        onPressed: () => _openFilter(context),
-        shape: const CircleBorder(),
-        backgroundColor: const Color(0xFF007074),
-        foregroundColor: Colors.white,
-        splashColor: const Color(0xFF1C989C),
-        elevation: 8,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.filter_list, size: 28, color: Colors.white),
-            SizedBox(height: 1),
-            Text(
-              'Filter',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 8,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
         ),
       ),
     );

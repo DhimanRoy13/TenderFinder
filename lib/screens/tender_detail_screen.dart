@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../shared/tender_models.dart';
 import '../shared/bookmark_provider.dart';
+import '../shared/subscription_provider.dart';
+import '../screens/subscription_screen.dart';
 import '../widgets/custom_bottom_navbar.dart';
 
 void openFilter(BuildContext context) async {
@@ -18,17 +20,48 @@ class TenderDetailScreen extends StatefulWidget {
 
 class _TenderDetailScreenState extends State<TenderDetailScreen> {
   @override
+  void initState() {
+    super.initState();
+    // Check subscription status when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSubscriptionAccess();
+    });
+  }
+
+  void _checkSubscriptionAccess() {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(
+      context,
+      listen: false,
+    );
+    if (!subscriptionProvider.isSubscribed) {
+      // User doesn't have active subscription, redirect to subscription screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const SubscriptionScreen(isFromTenderAccess: true),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        return false;
-      },
-      child: Consumer<BookmarkProvider>(
-        builder: (context, bookmarkProvider, _) {
-          final tender = widget.tender;
-          final isBookmarked = bookmarkProvider.isBookmarked(tender);
-          return Scaffold(
+    return Consumer2<BookmarkProvider, SubscriptionProvider>(
+      builder: (context, bookmarkProvider, subscriptionProvider, _) {
+        // If not subscribed, show subscription prompt
+        if (!subscriptionProvider.isSubscribed) {
+          return const SubscriptionScreen(isFromTenderAccess: true);
+        }
+
+        final tender = widget.tender;
+        final isBookmarked = bookmarkProvider.isBookmarked(tender);
+
+        return WillPopScope(
+          onWillPop: () async {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            return false;
+          },
+          child: Scaffold(
             appBar: AppBar(
               title: const Text('Tender Details'),
               backgroundColor: const Color(0xFF1C989C),
@@ -163,9 +196,9 @@ class _TenderDetailScreenState extends State<TenderDetailScreen> {
                 onFilterPressed: () => openFilter(context),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

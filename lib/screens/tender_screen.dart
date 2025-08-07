@@ -8,6 +8,7 @@ import '../shared/tender_models.dart';
 import '../shared/tender_widgets.dart';
 import '../shared/filter_utils.dart';
 import '../widgets/custom_bottom_navbar.dart';
+import '../widgets/floating_filter_button.dart';
 
 // TenderScreen reuses the DashboardScreen logic
 class TenderScreen extends StatefulWidget {
@@ -255,6 +256,7 @@ class _TenderScreenState extends State<TenderScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           title: Text(
             _filtersApplied
                 ? 'Filtered Tenders (${_filteredTenders.length})'
@@ -318,42 +320,9 @@ class _TenderScreenState extends State<TenderScreen> {
                 },
               ),
               // Fixed Floating Filter Button
-              Positioned(right: 16, bottom: 16, child: _buildFilterButton()),
+              FloatingFilterButton(onPressed: _openFilterModal),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterButton() {
-    return SizedBox(
-      height: 56,
-      width: 56,
-      child: FloatingActionButton(
-        onPressed: _openFilterModal,
-        shape: const CircleBorder(),
-        backgroundColor: const Color(0xFF007074),
-        foregroundColor: Colors.white,
-        splashColor: const Color(0xFF1C989C),
-        elevation: 8,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.filter_list, size: 28, color: Colors.white),
-            SizedBox(height: 1),
-            Text(
-              'Filter',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 8,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
         ),
       ),
     );
