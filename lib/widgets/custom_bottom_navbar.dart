@@ -3,20 +3,27 @@ import 'package:flutter/material.dart';
 class CustomBottomNavBar extends StatelessWidget {
   final VoidCallback onFilterPressed;
   final ValueChanged<int>? onTabSelected;
+  final int? currentIndex; // Add explicit current index parameter
 
   const CustomBottomNavBar({
     super.key,
     required this.onFilterPressed,
     this.onTabSelected,
+    this.currentIndex,
   });
 
-  static const _routes = ['/home', '/tenders', '/notifications', '/profile'];
+  static const _routes = ['/home', '/tenders', '/favorites', '/profile'];
 
   // Selected/Unselected colors
   final Color _selectedItemColor = const Color(0xFF23BBBF);
   final Color _unselectedItemColor = Colors.white;
 
   int _getCurrentIndex(BuildContext context) {
+    // Use explicit currentIndex if provided
+    if (currentIndex != null) {
+      return currentIndex!;
+    }
+
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
     return _routes.indexOf(currentRoute);
   }

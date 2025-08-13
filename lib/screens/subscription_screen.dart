@@ -16,7 +16,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  SubscriptionPlan _selectedPlan = SubscriptionPlan.monthly;
+  SubscriptionPlan _selectedPlan = SubscriptionPlan.free;
   bool _isProcessingPayment = false;
 
   @override
@@ -263,8 +263,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                           final planDetails = subscriptionProvider
                               .getPlanDetails(plan);
                           final isSelected = _selectedPlan == plan;
-                          final isPopular = plan == SubscriptionPlan.quarterly;
-
+                          final isPopular = plan == SubscriptionPlan.free;
                           return GestureDetector(
                             onTap: () {
                               setState(() {
@@ -314,7 +313,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                                           ),
                                         ),
                                         child: const Text(
-                                          'POPULAR',
+                                          'FREE',
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,
@@ -476,6 +475,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                         ),
                         child: Container(
                           alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ), // Added vertical padding
                           child: _isProcessingPayment
                               ? const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,

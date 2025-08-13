@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 enum SubscriptionStatus { free, premium, expired }
 
-enum SubscriptionPlan { monthly, quarterly, yearly }
+enum SubscriptionPlan { free, threeMonths, sixMonths, yearly, twoYears }
 
 class SubscriptionProvider extends ChangeNotifier {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   SubscriptionStatus _status = SubscriptionStatus.free;
   DateTime? _expiryDate;
   SubscriptionPlan? _currentPlan;
@@ -28,37 +29,50 @@ class SubscriptionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Load subscription data from shared preferences
+  // Load subscription data from secure storage
   Future<void> _loadSubscriptionData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final statusIndex = prefs.getInt('subscription_status') ?? 0;
-    _status = SubscriptionStatus.values[statusIndex];
-
-    final expiryTimestamp = prefs.getInt('subscription_expiry');
-    if (expiryTimestamp != null) {
-      _expiryDate = DateTime.fromMillisecondsSinceEpoch(expiryTimestamp);
+    final statusString = await _secureStorage.read(key: 'subscription_status');
+    if (statusString != null) {
+      final statusIndex = int.tryParse(statusString) ?? 0;
+      _status = SubscriptionStatus.values[statusIndex];
     }
 
-    final planIndex = prefs.getInt('subscription_plan');
-    if (planIndex != null) {
-      _currentPlan = SubscriptionPlan.values[planIndex];
+    final expiryString = await _secureStorage.read(key: 'subscription_expiry');
+    if (expiryString != null) {
+      final expiryTimestamp = int.tryParse(expiryString);
+      if (expiryTimestamp != null) {
+        _expiryDate = DateTime.fromMillisecondsSinceEpoch(expiryTimestamp);
+      }
+    }
+
+    final planString = await _secureStorage.read(key: 'subscription_plan');
+    if (planString != null) {
+      final planIndex = int.tryParse(planString);
+      if (planIndex != null) {
+        _currentPlan = SubscriptionPlan.values[planIndex];
+      }
     }
   }
 
-  // Save subscription data to shared preferences
+  // Save subscription data to secure storage
   Future<void> _saveSubscriptionData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('subscription_status', _status.index);
+    await _secureStorage.write(
+      key: 'subscription_status',
+      value: _status.index.toString(),
+    );
 
     if (_expiryDate != null) {
-      await prefs.setInt(
-        'subscription_expiry',
-        _expiryDate!.millisecondsSinceEpoch,
+      await _secureStorage.write(
+        key: 'subscription_expiry',
+        value: _expiryDate!.millisecondsSinceEpoch.toString(),
       );
     }
 
     if (_currentPlan != null) {
-      await prefs.setInt('subscription_plan', _currentPlan!.index);
+      await _secureStorage.write(
+        key: 'subscription_plan',
+        value: _currentPlan!.index.toString(),
+      );
     }
   }
 
@@ -77,14 +91,20 @@ class SubscriptionProvider extends ChangeNotifier {
     // Set expiry date based on plan
     final now = DateTime.now();
     switch (plan) {
-      case SubscriptionPlan.monthly:
+      case SubscriptionPlan.free:
         _expiryDate = now.add(const Duration(days: 30));
         break;
-      case SubscriptionPlan.quarterly:
+      case SubscriptionPlan.threeMonths:
         _expiryDate = now.add(const Duration(days: 90));
+        break;
+      case SubscriptionPlan.sixMonths:
+        _expiryDate = now.add(const Duration(days: 180));
         break;
       case SubscriptionPlan.yearly:
         _expiryDate = now.add(const Duration(days: 365));
+        break;
+      case SubscriptionPlan.twoYears:
+        _expiryDate = now.add(const Duration(days: 730));
         break;
     }
 
@@ -116,26 +136,40 @@ class SubscriptionProvider extends ChangeNotifier {
   // Get plan details
   Map<String, dynamic> getPlanDetails(SubscriptionPlan plan) {
     switch (plan) {
-      case SubscriptionPlan.monthly:
+      case SubscriptionPlan.free:
         return {
-          'name': 'Monthly Plan',
-          'price': '₹299',
+          'name': 'Free Trial',
+          'price': '৳0',
           'duration': '30 days',
-          'savings': '',
+          'savings': 'Try for Free',
         };
-      case SubscriptionPlan.quarterly:
+      case SubscriptionPlan.threeMonths:
         return {
-          'name': 'Quarterly Plan',
-          'price': '₹799',
+          'name': '3 Months Plan',
+          'price': '৳799',
           'duration': '90 days',
-          'savings': 'Save 11%',
+          'savings': 'Save 10%',
+        };
+      case SubscriptionPlan.sixMonths:
+        return {
+          'name': '6 Months Plan',
+          'price': '৳1499',
+          'duration': '180 days',
+          'savings': 'Save 15%',
         };
       case SubscriptionPlan.yearly:
         return {
-          'name': 'Yearly Plan',
-          'price': '₹2999',
+          'name': '12 Months Plan',
+          'price': '৳2999',
           'duration': '365 days',
-          'savings': 'Save 17%',
+          'savings': 'Save 20%',
+        };
+      case SubscriptionPlan.twoYears:
+        return {
+          'name': '24 Months Plan',
+          'price': '৳4999',
+          'duration': '730 days',
+          'savings': 'Save 30%',
         };
     }
   }

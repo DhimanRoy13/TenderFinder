@@ -2,38 +2,75 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../shared/subscription_provider.dart';
+import '../providers/auth_provider.dart';
 import 'signup_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  LoginScreen({super.key});
-  static final TextEditingController emailController = TextEditingController();
-  static final TextEditingController passwordController =
-      TextEditingController();
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  static void clearFields() {
+  void clearFields() {
     emailController.clear();
     passwordController.clear();
   }
 
-  void _login(BuildContext context) {
+  void _login(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
-      // Initialize subscription provider with user ID
-      final subscriptionProvider = Provider.of<SubscriptionProvider>(
-        context,
-        listen: false,
-      );
-      subscriptionProvider.initializeSubscription(emailController.text);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      Navigator.pushReplacementNamed(
-        context,
-        '/home',
-        arguments: {
-          'userEmail': emailController.text,
-          'userName': null,
-          'showWelcome': true,
-        },
+      final result = await authProvider.login(
+        emailController.text.trim(),
+        passwordController.text,
       );
+
+      if (result['success']) {
+        // Initialize subscription provider with user ID
+        final subscriptionProvider = Provider.of<SubscriptionProvider>(
+          context,
+          listen: false,
+        );
+        subscriptionProvider.initializeSubscription(emailController.text);
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Login successful'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Wait for the snackbar to show before redirecting
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+
+        // Navigate to home screen
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {
+            'userEmail': authProvider.userEmail,
+            'userName': authProvider.userName,
+            'showWelcome': true,
+          },
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -80,11 +117,19 @@ class LoginScreen extends StatelessWidget {
                               children: [
                                 TextFormField(
                                   controller: emailController,
+                                  keyboardType: TextInputType.emailAddress,
                                   decoration: InputDecoration(
                                     labelText: "Email",
                                   ),
-                                  validator: (val) =>
-                                      val!.isEmpty ? "Enter your email" : null,
+                                  validator: (val) {
+                                    if (val!.isEmpty) return "Enter your email";
+                                    if (!RegExp(
+                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                    ).hasMatch(val)) {
+                                      return "Enter a valid email";
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 SizedBox(height: 20),
                                 TextFormField(
@@ -110,12 +155,28 @@ class LoginScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
-                                  child: Text(
-                                    "Login",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.white,
-                                    ),
+                                  child: Consumer<AuthProvider>(
+                                    builder: (context, authProvider, child) {
+                                      return authProvider.isLoading
+                                          ? SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : Text(
+                                              "Login",
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                color: Colors.white,
+                                              ),
+                                            );
+                                    },
                                   ),
                                 ),
                                 SizedBox(height: 20),

@@ -6,6 +6,7 @@ import '../widgets/custom_bottom_navbar.dart';
 import '../widgets/floating_filter_button.dart';
 import '../shared/filter_utils.dart';
 import 'tender_detail_screen.dart';
+import '../utils/back_button_handler.dart';
 
 class FavoriteScreen extends StatefulWidget {
   const FavoriteScreen({super.key});
@@ -15,7 +16,6 @@ class FavoriteScreen extends StatefulWidget {
 }
 
 class _FavoriteScreenState extends State<FavoriteScreen> {
-  DateTime? _lastBackPressed;
   // Removed draggable button position
 
   void _openFilter(BuildContext context) async {
@@ -53,23 +53,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
   Widget build(BuildContext context) {
     // Removed draggable button position logic
     return WillPopScope(
-      onWillPop: () async {
-        final now = DateTime.now();
-        if (_lastBackPressed == null ||
-            now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
-          _lastBackPressed = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Press back again to exit'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            ),
-          );
-          return false;
-        }
-        return true;
-      },
+      onWillPop: () => BackButtonHandler.handleMainPageBackPress(context),
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -86,6 +70,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         ),
         bottomNavigationBar: CustomBottomNavBar(
           onFilterPressed: () => _openFilter(context),
+          currentIndex: 2, // Favorites screen is index 2
         ),
         body: SafeArea(
           child: Stack(
@@ -112,44 +97,52 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       ),
                     );
                   }
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: bookmarks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final tender = bookmarks[index];
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            tender.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await bookmarkProvider.reloadBookmarks();
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: bookmarks.length,
+                      separatorBuilder: (_, _index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final tender = bookmarks[index];
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          subtitle: Text('Tender ID: ${tender.tenderId}'),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.bookmark_remove,
-                              color: Color(0xFF1C989C),
+                          child: ListTile(
+                            title: Text(
+                              tender.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            tooltip: 'Remove from Bookmarks',
-                            onPressed: () {
-                              bookmarkProvider.removeBookmark(tender);
+                            subtitle: Text('Tender ID: ${tender.tenderId}'),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.bookmark_remove,
+                                color: Color(0xFF1C989C),
+                              ),
+                              tooltip: 'Remove from Bookmarks',
+                              onPressed: () {
+                                bookmarkProvider.removeBookmark(tender);
+                              },
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      TenderDetailScreen(tender: tender),
+                                ),
+                              );
                             },
                           ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    TenderDetailScreen(tender: tender),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   );
                 },
               ),

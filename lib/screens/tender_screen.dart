@@ -9,6 +9,7 @@ import '../shared/tender_widgets.dart';
 import '../shared/filter_utils.dart';
 import '../widgets/custom_bottom_navbar.dart';
 import '../widgets/floating_filter_button.dart';
+import '../utils/back_button_handler.dart';
 
 // TenderScreen reuses the DashboardScreen logic
 class TenderScreen extends StatefulWidget {
@@ -22,7 +23,6 @@ class _TenderScreenState extends State<TenderScreen> {
   late Future<List<Tender>> tendersFuture;
   List<Tender> _allTenders = [];
   List<Tender> _filteredTenders = [];
-  DateTime? _lastBackPressed;
   Map<String, String?> _selectedFilters = {
     'Category': null,
     'Location': null,
@@ -236,23 +236,7 @@ class _TenderScreenState extends State<TenderScreen> {
   Widget build(BuildContext context) {
     // Removed draggable button position logic
     return WillPopScope(
-      onWillPop: () async {
-        final now = DateTime.now();
-        if (_lastBackPressed == null ||
-            now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
-          _lastBackPressed = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Press back again to exit'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            ),
-          );
-          return false;
-        }
-        return true;
-      },
+      onWillPop: () => BackButtonHandler.handleMainPageBackPress(context),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
@@ -296,6 +280,7 @@ class _TenderScreenState extends State<TenderScreen> {
         ),
         bottomNavigationBar: CustomBottomNavBar(
           onFilterPressed: _openFilterModal,
+          currentIndex: 1, // Tenders screen is index 1
         ),
         body: SafeArea(
           child: Stack(
@@ -310,12 +295,21 @@ class _TenderScreenState extends State<TenderScreen> {
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(child: Text('No tenders found.'));
                   }
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredTenders.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) =>
-                        TenderCard(tender: _filteredTenders[index]),
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      setState(() {
+                        tendersFuture = fetchTenders();
+                      });
+                      await tendersFuture;
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredTenders.length,
+                      separatorBuilder: (_, _index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, index) =>
+                          TenderCard(tender: _filteredTenders[index]),
+                    ),
                   );
                 },
               ),

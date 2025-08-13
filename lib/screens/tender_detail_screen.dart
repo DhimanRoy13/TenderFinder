@@ -5,6 +5,10 @@ import '../shared/bookmark_provider.dart';
 import '../shared/subscription_provider.dart';
 import '../screens/subscription_screen.dart';
 import '../widgets/custom_bottom_navbar.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 
 void openFilter(BuildContext context) async {
   Navigator.pushNamed(context, '/filter');
@@ -44,6 +48,94 @@ class _TenderDetailScreenState extends State<TenderDetailScreen> {
     }
   }
 
+  Future<void> _downloadImage(String imageUrl, String fileName) async {
+    try {
+      // Check if image URL is valid
+      if (imageUrl.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No image available to download'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Request storage permission
+      var status = await Permission.storage.request();
+      if (status.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Storage permission is required to download images',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Downloading image...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Download the image
+      final response = await http.get(Uri.parse(imageUrl));
+
+      if (response.statusCode == 200) {
+        // Get the Downloads directory
+        Directory? directory;
+        if (Platform.isAndroid) {
+          directory = Directory('/storage/emulated/0/Download');
+          if (!await directory.exists()) {
+            directory = await getExternalStorageDirectory();
+          }
+        } else {
+          directory = await getApplicationDocumentsDirectory();
+        }
+
+        if (directory != null) {
+          final filePath = '${directory.path}/$fileName';
+          final file = File(filePath);
+          await file.writeAsBytes(response.bodyBytes);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Image saved to Downloads folder'),
+                duration: const Duration(seconds: 3),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        throw Exception(
+          'Failed to download image (Status: ${response.statusCode})',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<BookmarkProvider, SubscriptionProvider>(
@@ -58,8 +150,22 @@ class _TenderDetailScreenState extends State<TenderDetailScreen> {
 
         return WillPopScope(
           onWillPop: () async {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            return false;
+            final routes = Navigator.of(context);
+            bool goHome = false;
+            routes.popUntil((route) {
+              final name = route.settings.name;
+              if (name == '/login' || name == '/signup') {
+                goHome = true;
+              }
+              return true;
+            });
+            if (goHome) {
+              Navigator.of(context).pushReplacementNamed('/splash');
+              return false;
+            } else {
+              Navigator.of(context).pop();
+              return true;
+            }
           },
           child: Scaffold(
             appBar: AppBar(
@@ -67,6 +173,16 @@ class _TenderDetailScreenState extends State<TenderDetailScreen> {
               backgroundColor: const Color(0xFF1C989C),
               foregroundColor: Colors.white,
               actions: [
+                // Download button - only show if tender has an image
+                if (tender.image.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.download, color: Colors.white),
+                    tooltip: 'Download Image',
+                    onPressed: () {
+                      final fileName = 'tender_${tender.tenderId}_image.jpg';
+                      _downloadImage(tender.image, fileName);
+                    },
+                  ),
                 IconButton(
                   icon: Icon(
                     isBookmarked ? Icons.bookmark : Icons.bookmark_border,
@@ -194,6 +310,7 @@ class _TenderDetailScreenState extends State<TenderDetailScreen> {
             bottomNavigationBar: SafeArea(
               child: CustomBottomNavBar(
                 onFilterPressed: () => openFilter(context),
+                currentIndex: -1, // Detail screen not in main tabs
               ),
             ),
           ),

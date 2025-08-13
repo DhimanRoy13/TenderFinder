@@ -1,34 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../shared/subscription_provider.dart';
+import '../providers/auth_provider.dart';
 import 'home_screen.dart';
 
-class SignupScreen extends StatelessWidget {
-  SignupScreen({super.key});
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
-  void _signup(BuildContext context) {
+  void _signup(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
-      // Initialize subscription provider with user ID
-      final subscriptionProvider = Provider.of<SubscriptionProvider>(
-        context,
-        listen: false,
-      );
-      subscriptionProvider.initializeSubscription(emailController.text);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(
-            userEmail: emailController.text,
-            userName: nameController.text,
-            showWelcome: true,
-          ),
-        ),
+      final result = await authProvider.register(
+        name: nameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text,
+        passwordConfirmation: confirmPasswordController.text,
       );
+
+      if (result['success']) {
+        // Initialize subscription provider with user ID
+        final subscriptionProvider = Provider.of<SubscriptionProvider>(
+          context,
+          listen: false,
+        );
+        subscriptionProvider.initializeSubscription(emailController.text);
+
+        // Show success message
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration successful! Welcome to TenderFinder!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Navigate to home screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              userEmail: authProvider.userEmail,
+              userName: authProvider.userName,
+              showWelcome: true,
+            ),
+          ),
+        );
+      } else {
+        // Show error message
+        String errorMessage = result['message'] ?? 'Registration failed';
+
+        // Handle validation errors
+        if (result['errors'] != null && result['errors'].isNotEmpty) {
+          final errors = result['errors'] as Map<String, dynamic>;
+          final errorMessages = <String>[];
+
+          errors.forEach((field, messages) {
+            if (messages is List) {
+              errorMessages.addAll(messages.cast<String>());
+            }
+          });
+
+          if (errorMessages.isNotEmpty) {
+            errorMessage = errorMessages.join('\n');
+          }
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -84,11 +142,21 @@ class SignupScreen extends StatelessWidget {
                                 SizedBox(height: 20),
                                 TextFormField(
                                   controller: emailController,
+                                  keyboardType: TextInputType.emailAddress,
                                   decoration: InputDecoration(
                                     labelText: "Email",
                                   ),
-                                  validator: (val) =>
-                                      val!.isEmpty ? "Enter your email" : null,
+                                  validator: (val) {
+                                    if (val!.isEmpty) {
+                                      return "Enter your email";
+                                    }
+                                    if (!RegExp(
+                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                    ).hasMatch(val)) {
+                                      return "Enter a valid email";
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 SizedBox(height: 20),
                                 TextFormField(
@@ -97,8 +165,32 @@ class SignupScreen extends StatelessWidget {
                                   decoration: InputDecoration(
                                     labelText: "Password",
                                   ),
-                                  validator: (val) =>
-                                      val!.isEmpty ? "Enter a password" : null,
+                                  validator: (val) {
+                                    if (val!.isEmpty) {
+                                      return "Enter a password";
+                                    }
+                                    if (val.length < 6) {
+                                      return "Password must be at least 6 characters";
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                SizedBox(height: 20),
+                                TextFormField(
+                                  controller: confirmPasswordController,
+                                  obscureText: true,
+                                  decoration: InputDecoration(
+                                    labelText: "Confirm Password",
+                                  ),
+                                  validator: (val) {
+                                    if (val!.isEmpty) {
+                                      return "Confirm your password";
+                                    }
+                                    if (val != passwordController.text) {
+                                      return "Passwords do not match";
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 SizedBox(height: 40),
                                 ElevatedButton(
@@ -113,12 +205,28 @@ class SignupScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
-                                  child: Text(
-                                    "Sign Up",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.white,
-                                    ),
+                                  child: Consumer<AuthProvider>(
+                                    builder: (context, authProvider, child) {
+                                      return authProvider.isLoading
+                                          ? SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : Text(
+                                              "Sign Up",
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                color: Colors.white,
+                                              ),
+                                            );
+                                    },
                                   ),
                                 ),
                                 SizedBox(height: 20),

@@ -9,6 +9,8 @@ import '../shared/tender_models.dart';
 import '../shared/tender_widgets.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/back_button_handler.dart';
 
 import 'notification_screen.dart';
 
@@ -40,7 +42,33 @@ class _HomeScreenState extends State<HomeScreen> {
     'Date': null,
     'Search': null,
   };
+
+  // TODO: Replace with actual unread notification logic
+  bool hasUnreadNotifications = true;
   bool _filtersApplied = false;
+
+  // Check if there are unread notifications
+  Future<bool> _checkUnreadNotifications() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('isRead', isEqualTo: false)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      return false; // Default to false if error occurs
+    }
+  }
+
+  void _updateNotificationStatus() async {
+    final hasUnread = await _checkUnreadNotifications();
+    if (mounted) {
+      setState(() {
+        hasUnreadNotifications = hasUnread;
+      });
+    }
+  }
 
   void _applyFilters() {
     setState(() {
@@ -112,7 +140,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 return false;
               }
             }
-          } catch (e) {}
+          } catch (e) {
+            // TODO: handle error or log it
+          }
         }
         return true;
       }).toList();
@@ -168,7 +198,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  DateTime? _lastBackPressed;
   bool _welcomeShown = false;
   // Removed draggable button position
 
@@ -176,6 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     tendersFuture = fetchTenders();
+    _updateNotificationStatus(); // Check for unread notifications on init
   }
 
   @override
@@ -246,23 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenSize = MediaQuery.of(context).size;
 
     return WillPopScope(
-      onWillPop: () async {
-        final now = DateTime.now();
-        if (_lastBackPressed == null ||
-            now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
-          _lastBackPressed = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Press back again to exit'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            ),
-          );
-          return false;
-        }
-        return true;
-      },
+      onWillPop: () => BackButtonHandler.handleMainPageBackPress(context),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
         appBar: AppBar(
@@ -332,28 +346,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications, color: Colors.white),
-                    onPressed: () {
-                      Navigator.of(context).push(
+                    icon: Icon(
+                      hasUnreadNotifications
+                          ? Icons
+                                .notifications // filled icon
+                          : Icons.notifications_none, // outlined icon
+                      color: Colors.white,
+                    ),
+                    onPressed: () async {
+                      await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => NotificationScreen(),
                         ),
                       );
+                      // Update notification status when returning from notification screen
+                      _updateNotificationStatus();
                     },
                   ),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+                  if (hasUnreadNotifications)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -361,6 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         bottomNavigationBar: CustomBottomNavBar(
           onFilterPressed: _openFilterModal,
+          currentIndex: 0, // Home screen is index 0
         ),
         body: SafeArea(
           child: Stack(
@@ -430,12 +454,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   }
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredTenders.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) => RepaintBoundary(
-                      child: TenderCard(tender: _filteredTenders[index]),
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      setState(() {
+                        tendersFuture = fetchTenders();
+                      });
+                      await tendersFuture;
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredTenders.length,
+                      separatorBuilder: (_, _index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, index) => RepaintBoundary(
+                        child: TenderCard(tender: _filteredTenders[index]),
+                      ),
                     ),
                   );
                 },

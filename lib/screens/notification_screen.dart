@@ -1,7 +1,12 @@
+// ignore_for_file: unused_element, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import '../services/notification_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'notification_test_screen.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -15,60 +20,82 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  List<Map<String, dynamic>> notifications = [];
+  final CollectionReference _notificationCollection = FirebaseFirestore.instance
+      .collection('notifications');
 
-  Future<void> _requestNotificationPermission() async {
-    final settings = await FirebaseMessaging.instance.requestPermission();
-    print('Notification permission status: \\${settings.authorizationStatus}');
+  void _addNotification(RemoteMessage message) {
+    final notificationData = {
+      'title': message.notification?.title ?? 'No Title',
+      'body': message.notification?.body ?? 'No Body',
+      'time': DateTime.now().toIso8601String(),
+      'isRead': false,
+    };
+    setState(() {
+      notifications.insert(0, {...notificationData, 'time': DateTime.now()});
+    });
+    // Save to Firestore
+    _notificationCollection.add(notificationData);
   }
+
+  void _listenToFirebaseMessages() {
+    // Listen for foreground messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Received foreground message: ${message.data}');
+      _addNotification(message);
+      _fetchNotificationsFromFirestore();
+    });
+
+    // Listen for background message taps
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('Notification opened: ${message.data}');
+      _addNotification(message);
+      _fetchNotificationsFromFirestore();
+    });
+  }
+
+  List<Map<String, dynamic>> notifications = [];
 
   @override
   void initState() {
     super.initState();
 
-    // Request notification permission (Android 13+)
-    _requestNotificationPermission();
+    // Load notifications from Firestore
+    _fetchNotificationsFromFirestore();
 
-    // Initialize local notifications
-    final AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    // Listen for new Firebase messages
+    _listenToFirebaseMessages();
 
-    // Print FCM token for debugging
-    FirebaseMessaging.instance.getToken().then((token) {
-      print('FCM Token: \\${token}');
-    });
+    // Get and display FCM token
+    _displayToken();
+  }
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Received foreground message: \\${message.data}');
-      _addNotification(message);
-      _showLocalNotification(message);
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('Notification opened: \\${message.data}');
-      _addNotification(message);
-    });
-
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
-      if (message != null) {
-        print('App launched from notification: \\${message.data}');
-        _addNotification(message);
-      }
+  Future<void> _fetchNotificationsFromFirestore() async {
+    final snapshot = await _notificationCollection
+        .orderBy('time', descending: true)
+        .get();
+    setState(() {
+      notifications = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'title': data['title'] ?? 'No Title',
+          'body': data['body'] ?? 'No Body',
+          'time': DateTime.tryParse(data['time'] ?? '') ?? DateTime.now(),
+          'isRead': data['isRead'] ?? false,
+        };
+      }).toList();
     });
   }
 
-  void _addNotification(RemoteMessage message) {
-    setState(() {
-      notifications.insert(0, {
-        'title': message.notification?.title ?? 'No Title',
-        'body': message.notification?.body ?? 'No Body',
-        'time': DateTime.now(),
-        'isRead': false,
-      });
-    });
+  void _displayToken() async {
+    String? token = await NotificationService().getToken();
+    print('FCM Token: $token');
+    // You can copy this token for testing with Firebase Console
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('FCM Token logged to console'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showLocalNotification(RemoteMessage message) {
@@ -93,15 +120,41 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   void _markAsRead(int index) {
+    final notification = notifications[index];
     setState(() {
-      notifications[index]['isRead'] = true;
+      notification['isRead'] = true;
     });
+    // Update Firestore
+    _notificationCollection
+        .where(
+          'time',
+          isEqualTo: (notification['time'] as DateTime).toIso8601String(),
+        )
+        .get()
+        .then((snapshot) {
+          for (var doc in snapshot.docs) {
+            doc.reference.update({'isRead': true});
+          }
+        });
   }
 
   void _deleteNotification(int index) {
+    final notification = notifications[index];
     setState(() {
       notifications.removeAt(index);
     });
+    // Delete from Firestore
+    _notificationCollection
+        .where(
+          'time',
+          isEqualTo: (notification['time'] as DateTime).toIso8601String(),
+        )
+        .get()
+        .then((snapshot) {
+          for (var doc in snapshot.docs) {
+            doc.reference.delete();
+          }
+        });
   }
 
   void _markAllAsRead() {
@@ -110,6 +163,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
         n['isRead'] = true;
       }
     });
+    // Update all in Firestore
+    for (var n in notifications) {
+      _notificationCollection
+          .where('time', isEqualTo: (n['time'] as DateTime).toIso8601String())
+          .get()
+          .then((snapshot) {
+            for (var doc in snapshot.docs) {
+              doc.reference.update({'isRead': true});
+            }
+          });
+    }
   }
 
   void _clearAll() {
@@ -137,16 +201,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   /// Simulate refreshing (could also fetch from API or Firebase here)
   Future<void> _refreshNotifications() async {
-    await Future.delayed(Duration(seconds: 1)); // Simulated delay
-    setState(() {
-      // In real-world, you'd fetch from server or re-sync with Firebase
-      notifications.insert(0, {
-        'title': 'Refreshed Notification',
-        'body': 'This is a newly fetched notification',
-        'time': DateTime.now(),
-        'isRead': false,
-      });
-    });
+    await Future.delayed(Duration(milliseconds: 500)); // Simulated delay
+    await _fetchNotificationsFromFirestore(); // Reload from Firestore
   }
 
   @override
@@ -157,6 +213,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
       appBar: AppBar(
         title: Text("Notifications"),
         actions: [
+          IconButton(
+            icon: Icon(Icons.bug_report),
+            tooltip: "Test Notifications",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationTestScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(Icons.done_all),
             tooltip: "Mark all as read",

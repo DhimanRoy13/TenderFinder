@@ -22,6 +22,7 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(title: Text("Search")),
       bottomNavigationBar: CustomBottomNavBar(
         onFilterPressed: () => _openFilter(context),
+        currentIndex: -1, // Search screen not in main tabs
       ),
       body: SafeArea(
         child: Stack(

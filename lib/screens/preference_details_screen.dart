@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 
 class PreferenceDetailsScreen extends StatefulWidget {
   const PreferenceDetailsScreen({super.key});
@@ -10,6 +11,7 @@ class PreferenceDetailsScreen extends StatefulWidget {
 }
 
 class _PreferenceDetailsScreenState extends State<PreferenceDetailsScreen> {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   // Track which dropdown is open
   String? _openDropdown;
 
@@ -298,58 +300,139 @@ class _PreferenceDetailsScreenState extends State<PreferenceDetailsScreen> {
   }
 
   Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
+    final location = await _secureStorage.read(key: 'pref_location') ?? '';
+    final category = await _secureStorage.read(key: 'pref_category') ?? '';
+    final organization =
+        await _secureStorage.read(key: 'pref_organization') ?? '';
+    final tenderType = await _secureStorage.read(key: 'pref_tender_type') ?? '';
+    final sector = await _secureStorage.read(key: 'pref_sector') ?? '';
+
     setState(() {
-      locationController.text = prefs.getString('pref_location') ?? '';
-      categoryController.text = prefs.getString('pref_category') ?? '';
-      organizationController.text = prefs.getString('pref_organization') ?? '';
-      tenderTypeController.text = prefs.getString('pref_tender_type') ?? '';
-      sectorController.text = prefs.getString('pref_sector') ?? '';
+      locationController.text = location;
+      categoryController.text = category;
+      organizationController.text = organization;
+      tenderTypeController.text = tenderType;
+      sectorController.text = sector;
 
-      // Load selected lists
-      selectedCategories =
-          prefs.getStringList('pref_selected_categories') ?? [];
-      selectedLocations = prefs.getStringList('pref_selected_locations') ?? [];
-      selectedOrganizations =
-          prefs.getStringList('pref_selected_organizations') ?? [];
-      selectedTenderTypes =
-          prefs.getStringList('pref_selected_tender_types') ?? [];
-      selectedSectors = prefs.getStringList('pref_selected_sectors') ?? [];
+      // Load selected lists from JSON strings
+      final categoriesJson = _secureStorage.read(
+        key: 'pref_selected_categories',
+      );
+      final locationsJson = _secureStorage.read(key: 'pref_selected_locations');
+      final organizationsJson = _secureStorage.read(
+        key: 'pref_selected_organizations',
+      );
+      final tenderTypesJson = _secureStorage.read(
+        key: 'pref_selected_tender_types',
+      );
+      final sectorsJson = _secureStorage.read(key: 'pref_selected_sectors');
 
-      final dateStr = prefs.getString('pref_date');
-      if (dateStr != null) {
-        selectedDate = DateTime.tryParse(dateStr);
-      }
+      categoriesJson.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedCategories = List<String>.from(jsonDecode(value));
+          });
+        }
+      });
+
+      locationsJson.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedLocations = List<String>.from(jsonDecode(value));
+          });
+        }
+      });
+
+      organizationsJson.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedOrganizations = List<String>.from(jsonDecode(value));
+          });
+        }
+      });
+
+      tenderTypesJson.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedTenderTypes = List<String>.from(jsonDecode(value));
+          });
+        }
+      });
+
+      sectorsJson.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedSectors = List<String>.from(jsonDecode(value));
+          });
+        }
+      });
+
+      final dateStr = _secureStorage.read(key: 'pref_date');
+      dateStr.then((value) {
+        if (value != null && mounted) {
+          setState(() {
+            selectedDate = DateTime.tryParse(value);
+          });
+        }
+      });
+
       _loading = false;
     });
   }
 
   Future<void> _savePreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pref_location', locationController.text);
-    await prefs.setString('pref_category', categoryController.text);
-    await prefs.setString('pref_organization', organizationController.text);
-    await prefs.setString('pref_tender_type', tenderTypeController.text);
-    await prefs.setString('pref_sector', sectorController.text);
+    await _secureStorage.write(
+      key: 'pref_location',
+      value: locationController.text,
+    );
+    await _secureStorage.write(
+      key: 'pref_category',
+      value: categoryController.text,
+    );
+    await _secureStorage.write(
+      key: 'pref_organization',
+      value: organizationController.text,
+    );
+    await _secureStorage.write(
+      key: 'pref_tender_type',
+      value: tenderTypeController.text,
+    );
+    await _secureStorage.write(
+      key: 'pref_sector',
+      value: sectorController.text,
+    );
 
-    // Save selected lists
-    await prefs.setStringList('pref_selected_categories', selectedCategories);
-    await prefs.setStringList('pref_selected_locations', selectedLocations);
-    await prefs.setStringList(
-      'pref_selected_organizations',
-      selectedOrganizations,
+    // Save selected lists as JSON strings
+    await _secureStorage.write(
+      key: 'pref_selected_categories',
+      value: jsonEncode(selectedCategories),
     );
-    await prefs.setStringList(
-      'pref_selected_tender_types',
-      selectedTenderTypes,
+    await _secureStorage.write(
+      key: 'pref_selected_locations',
+      value: jsonEncode(selectedLocations),
     );
-    await prefs.setStringList('pref_selected_sectors', selectedSectors);
+    await _secureStorage.write(
+      key: 'pref_selected_organizations',
+      value: jsonEncode(selectedOrganizations),
+    );
+    await _secureStorage.write(
+      key: 'pref_selected_tender_types',
+      value: jsonEncode(selectedTenderTypes),
+    );
+    await _secureStorage.write(
+      key: 'pref_selected_sectors',
+      value: jsonEncode(selectedSectors),
+    );
 
     if (selectedDate != null) {
-      await prefs.setString('pref_date', selectedDate!.toIso8601String());
+      await _secureStorage.write(
+        key: 'pref_date',
+        value: selectedDate!.toIso8601String(),
+      );
     } else {
-      await prefs.remove('pref_date');
+      await _secureStorage.delete(key: 'pref_date');
     }
+
     if (mounted) {
       ScaffoldMessenger.of(
         context,

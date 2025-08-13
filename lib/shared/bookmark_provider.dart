@@ -21,4 +21,11 @@ class BookmarkProvider extends ChangeNotifier {
     _bookmarkedTenders.removeWhere((t) => t.tenderId == tender.tenderId);
     notifyListeners();
   }
+
+  Future<void> reloadBookmarks() async {
+    // If bookmarks are stored locally, reload from storage here
+    // If bookmarks are fetched from an API, reload from API here
+    // For demo, just notify listeners (replace with your actual reload logic)
+    notifyListeners();
+  }
 }
